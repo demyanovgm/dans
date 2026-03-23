@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ТанцОценка — Полный ЭЖД</title>
+    <style>
+        :root { --primary: #1a237e; --secondary: #c2185b; --bg: #f0f2f5; --success: #4caf50; --danger: #f44336; --absent: #9e9e9e; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #333; }
+        
+        header { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; padding: 1.5rem 0; text-align: center; }
+        .container { width: 95%; max-width: 1200px; margin: 0 auto; padding: 15px; }
+
+        nav { background: white; padding: 0.5rem 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        nav ul { display: flex; justify-content: center; list-style: none; gap: 20px; }
+        nav a { color: var(--primary); text-decoration: none; font-weight: 600; cursor: pointer; padding: 8px 15px; }
+
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        section { display: none; }
+        section.active { display: block; }
+
+        /* Поиск и статистика */
+        .tools-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap: 10px; flex-wrap: wrap; }
+        .search-input { padding: 10px; border: 1px solid #ccc; border-radius: 6px; flex-grow: 1; max-width: 300px; }
+        .avg-badge { background: var(--primary); color: white; padding: 10px 15px; border-radius: 8px; font-weight: bold; }
+
+        /* Таблица */
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; }
+        td { padding: 12px; border-bottom: 1px solid #eee; }
+        
+        .mark { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-weight: bold; color: white; }
+        .m5 { background: var(--success); } .m4 { background: var(--primary); } .m3 { background: #ff9800; } .m2 { background: var(--danger); }
+        .mN { background: var(--absent); }
+
+        .btn-del { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1.1rem; }
+        
+        /* Форма */
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 10px; }
+        input, select { padding: 10px; border: 1px solid #ccc; border-radius: 6px; width: 100%; }
+        .btn-submit { background: var(--secondary); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="container">
+        <h1>ТанцОценка</h1>
+        <p id="statusInfo">Система мониторинга успеваемости</p>
+    </div>
+</header>
+
+<nav id="navbar" style="display:none;">
+    <div class="container">
+        <ul>
+            <li><a onclick="showTab('tab-journal')">Журнал</a></li>
+            <li id="teacher-nav" style="display:none;"><a onclick="showTab('tab-admin')">Добавить запись</a></li>
+            <li><a href="">Выход</a></li>
+        </ul>
+    </div>
+</nav>
+
+<div class="container">
+    <!-- Вход -->
+    <section id="tab-login" class="active">
+        <div class="card" style="max-width: 400px; margin: 40px auto; text-align: center;">
+            <h2 style="margin-bottom:20px;">Авторизация</h2>
+            <select id="roleSelect" style="margin-bottom:15px;">
+                <option value="student">Ученик (Просмотр)</option>
+                <option value="teacher">Преподаватель (Правка)</option>
+            </select>
+            <button onclick="login()" class="btn-submit">Войти</button>
+        </div>
+    </section>
+
+    <!-- Журнал -->
+    <section id="tab-journal">
+        <div class="card">
+            <div class="tools-row">
+                <input type="text" class="search-input" id="searchInput" placeholder="Поиск по ФИО..." onkeyup="filterJournal()">
+                <div class="avg-badge">Средний балл по списку: <span id="totalAvg">0.00</span></div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table id="journalTable">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Ученик</th>
+                            <th>Предмет</th>
+                            <th>Тема</th>
+                            <th>Оценка</th>
+                            <th id="del-header" style="display:none;">Удаление</th>
+                        </tr>
+                    </thead>
+                    <tbody id="journalBody">
+                        <!-- Сюда попадают данные -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Админка -->
+    <section id="tab-admin">
+        <div class="card">
+            <h2 style="margin-bottom:15px; color: var(--secondary);">Новая оценка / Пропуск</h2>
+            <form id="gradeForm">
+                <div class="form-row">
+                    <input type="date" id="f-date" required>
+                    <input type="text" id="f-name" placeholder="ФИО Ученика" required>
+                    <select id="f-sub">
+                        <option>Классика</option>
+                        <option>Хип-хоп</option>
+                        <option>Балет</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <input type="text" id="f-topic" placeholder="Тема урока" required>
+                    <select id="f-mark">
+                        <option value="5">5</option>
+                        <option value="4">4</option>
+                        <option value="3">3</option>
+                        <option value="2">2</option>
+                        <option value="Н">Н (Пропуск)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit">Опубликовать</button>
+            </form>
+        </div>
+    </section>
+</div>
+
+<script>
+    let isTeacher = false;
+
+    function showTab(id) {
+        document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    function login() {
+        const role = document.getElementById('roleSelect').value;
+        document.getElementById('tab-login').style.display = 'none';
+        document.getElementById('navbar').style.display = 'block';
+        
+        if(role === 'teacher') {
+            isTeacher = true;
+            document.getElementById('teacher-nav').style.display = 'block';
+            document.getElementById('del-header').style.display = 'table-cell';
+            document.getElementById('statusInfo').innerText = 'Режим преподавателя';
+            showTab('tab-admin');
+        } else {
+            showTab('tab-journal');
+        }
+        calculateAvg();
+    }
+
+    document.getElementById('gradeForm').onsubmit = function(e) {
+        e.preventDefault();
+        const id = Date.now();
+        const data = {
+            date: document.getElementById('f-date').value,
+            name: document.getElementById('f-name').value,
+            sub: document.getElementById('f-sub').value,
+            topic: document.getElementById('f-topic').value,
+            mark: document.getElementById('f-mark').value
+        };
+
+        const markClass = (data.mark === 'Н') ? 'mN' : 'm' + data.mark;
+        const rowHTML = `
+            <tr id="row-${id}" data-mark="${data.mark}">
+                <td>${data.date}</td>
+                <td class="student-name"><strong>${data.name}</strong></td>
+                <td>${data.sub}</td>
+                <td>${data.topic}</td>
+                <td><div class="mark ${markClass}">${data.mark}</div></td>
+                ${isTeacher ? `<td><button class="btn-del" onclick="deleteRow(${id})">🗑️</button></td>` : ''}
+            </tr>
+        `;
+        
+        document.getElementById('journalBody').insertAdjacentHTML('afterbegin', rowHTML);
+        this.reset();
+        calculateAvg();
+        showTab('tab-journal');
+    };
+
+    function deleteRow(id) {
+        if(confirm('Удалить запись?')) {
+            document.getElementById('row-' + id).remove();
+            calculateAvg();
+        }
+    }
+
+    function filterJournal() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const rows = document.querySelectorAll('#journalBody tr');
+        rows.forEach(row => {
+            const name = row.querySelector('.student-name').innerText.toLowerCase();
+            row.style.display = name.includes(query) ? '' : 'none';
+        });
+        calculateAvg(); // Пересчитываем средний балл только для видимых строк
+    }
+
+    function calculateAvg() {
+        let sum = 0;
+        let count = 0;
+        const rows = document.querySelectorAll('#journalBody tr');
+        
+        rows.forEach(row => {
+            if (row.style.display !== 'none') {
+                const markVal = row.getAttribute('data-mark');
+                if (markVal !== 'Н') {
+                    sum += parseInt(markVal);
+                    count++;
+                }
+            }
+        });
+
+        const result = count > 0 ? (sum / count).toFixed(2) : "0.00";
+        document.getElementById('totalAvg').innerText = result;
+    }
+</script>
+</body>
+</html>
